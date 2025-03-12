@@ -35,14 +35,25 @@ func main() {
 		fmt.Println("Error configuring terminal:", err)
 		return
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
+		fmt.Println("Error restoring terminal state:", err)
+		return
+	}
+	defer func() {
+		if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
+			fmt.Println("Error restoring terminal state:", err)
+		}
+	}()
 
 	currentIdx := 0
 	ui.DisplayDirs(dirs, currentIdx)
 
 	buffer := make([]byte, 3)
 	for {
-		os.Stdin.Read(buffer)
+		if _, err := os.Stdin.Read(buffer); err != nil {
+			fmt.Println("Error reading from stdin:", err)
+			return
+		}
 
 		switch {
 		case buffer[0] == 3: // Ctrl+C
@@ -91,10 +102,16 @@ processSelection:
 	fmt.Printf("\nTotal size: %s\n", utils.FormatSize(totalSize))
 	fmt.Print("\nConfirm deletion (Y/N): ")
 
-	term.Restore(int(os.Stdin.Fd()), oldState)
+	if err := term.Restore(int(os.Stdin.Fd()), oldState); err != nil {
+		fmt.Println("Error restoring terminal state:", err)
+		return
+	}
 
 	var response string
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		fmt.Println("Error reading user input:", err)
+		return
+	}
 
 	if strings.ToUpper(response) == "Y" {
 		for _, dir := range selectedDirs {
